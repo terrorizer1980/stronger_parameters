@@ -7,6 +7,7 @@ module StrongerParameters
     def initialize(options = {})
       @maximum_length = options[:maximum_length] || options[:max_length]
       @minimum_length = options[:minimum_length] || options[:min_length]
+      @reject_null_bytes = options.fetch(:reject_null_bytes, true)
     end
 
     def value(v)
@@ -17,6 +18,8 @@ module StrongerParameters
           return InvalidValue.new(v, "can not be shorter than #{minimum_length} bytes")
         elsif !v.valid_encoding?
           return InvalidValue.new(v, 'must have valid encoding')
+        elsif reject_null_bytes? && v.include?("\u0000")
+          return InvalidValue.new(v, 'can not contain any null bytes')
         end
 
         return v
@@ -27,6 +30,12 @@ module StrongerParameters
 
     def ==(other)
       super && maximum_length == other.maximum_length
+    end
+
+    private
+
+    def reject_null_bytes?
+      @reject_null_bytes
     end
   end
 end
