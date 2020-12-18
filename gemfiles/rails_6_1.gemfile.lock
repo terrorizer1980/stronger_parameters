@@ -1,5 +1,5 @@
 PATH
-  remote: .
+  remote: ..
   specs:
     stronger_parameters (2.12.1)
       actionpack (>= 6.0.0, < 6.2)
@@ -182,11 +182,11 @@ DEPENDENCIES
   bundler (<= 3)
   minitest
   minitest-around
-  minitest-rails (~> 6)
+  minitest-rails (~> 6.1.0, < 6.2)
   minitest-rg
   mocha
   pry
-  rails (~> 6)
+  rails (~> 6.1.0, < 6.2)
   rake
   rubocop (= 1.6.1)
   single_cov

@@ -6,32 +6,28 @@ require 'bundler/setup'
 require 'single_cov'
 SingleCov.setup :minitest
 
+require 'rails'
+require 'rails/generators'
+
 require 'minitest/autorun'
 require 'minitest/rg'
 require 'minitest/around'
-require 'mocha/setup'
-require 'rails'
-require 'action_controller'
-require 'rails/generators'
-
-class FakeApplication < Rails::Application; end
-
-Rails.application = FakeApplication
-Rails.configuration.action_controller = ActiveSupport::OrderedOptions.new
-Rails.configuration.secret_key_base = 'secret_key_base'
-Rails.logger = Logger.new("/dev/null")
-
-ActiveSupport.test_order = :random if ActiveSupport.respond_to?(:test_order=)
-
-require 'action_pack'
-require 'strong_parameters' if ActionPack::VERSION::MAJOR == 3
-require 'stronger_parameters'
 require 'minitest/rails'
-require 'minitest/autorun'
+require 'mocha/setup'
+require 'pry'
 
-# https://github.com/rails/rails/issues/31324
-if ActionPack::VERSION::STRING >= "5.2.0"
-  Minitest::Rails::TestUnit = Rails::TestUnit
+require 'stronger_parameters'
+
+class FakeApplication < Rails::Application
+  config.action_dispatch.show_exceptions = false
+  config.logger = Logger.new("/dev/null")
+end
+
+FakeApplication.initialize!
+
+FakeApplication.routes.draw do
+  resources :whitelists
+  resources :books
 end
 
 class Minitest::Test
@@ -75,17 +71,4 @@ class Minitest::Test
       assert_rejects(key) { params(value: value).permit(value: subject) }
     end
   end
-end
-
-# https://github.com/seattlerb/minitest/issues/666
-if RUBY_VERSION > "2.1.0"
-  Object.prepend(Module.new do
-    def must_equal(*args)
-      if args.first.nil?
-        raise "Use must_be_nil"
-      else
-        super
-      end
-    end
-  end)
 end

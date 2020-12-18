@@ -2,14 +2,14 @@
 require_relative '../../test_helper'
 require 'stronger_parameters/controller_support/permitted_parameters'
 
-SingleCov.covered! uncovered: (RUBY_VERSION >= "2.5.0" ? 3 : 0) # uncovered branches for rails version check
+SingleCov.covered! uncovered: 3
 
 class WhitelistsController < ActionController::Base
-  ROUTES = ActionDispatch::Routing::RouteSet.new
-  ROUTES.draw { resources :whitelists }
-  include ROUTES.url_helpers
-
   include StrongerParameters::ControllerSupport::PermittedParameters
+
+  rescue_from(KeyError) do |e|
+    render plain: e.message, status: :bad_request
+  end
 
   def create
     head :ok
@@ -25,19 +25,11 @@ class WhitelistsController < ActionController::Base
 end
 
 describe WhitelistsController do
+  # rubocop:disable Lint/ConstantDefinitionInBlock
   Parameters = ActionController::Parameters
-
-  def get(action, options = {})
-    if Rails::VERSION::MAJOR < 5
-      super(action, options.fetch(:params).merge(format: options[:format] || 'html'))
-    else
-      super
-    end
-  end
+  # rubocop:enable Lint/ConstantDefinitionInBlock
 
   before do
-    @routes = WhitelistsController::ROUTES
-
     # cannot use around since it is not ordered in rails 3.2
     @old_invalid = ActionController::Parameters.action_on_invalid_parameters
     ActionController::Parameters.action_on_invalid_parameters = :log
@@ -98,8 +90,10 @@ describe WhitelistsController do
     end
 
     describe 'inheritance' do
+      # rubocop:disable Lint/ConstantDefinitionInBlock
       class ChildController < WhitelistsController
       end
+      # rubocop:enable Lint/ConstantDefinitionInBlock
 
       before do
         WhitelistsController.permitted_parameters :create, first: Parameters.string
@@ -125,7 +119,7 @@ describe WhitelistsController do
 
   describe '#permit_parameters' do
     def do_request
-      get :index, params: parameters, format: 'png'
+      get "/whitelists", params: parameters.merge(format: 'png')
     end
 
     let(:parameters) { {id: '4', authenticity_token: 'auth'} }
@@ -182,25 +176,26 @@ describe WhitelistsController do
     end
 
     it 'raises when action is not configured' do
-      assert_raises(KeyError) { get :show, params: {id: 1} }
+      get "/whitelists/1"
+      assert_response :bad_request
     end
 
     it 'raises proper exception even if action is not defined (and not configured)' do
-      @controller.params.merge!(action: 'ops_not_here', id: 1)
-      assert_raises(KeyError) { @controller.send(:permit_parameters) }
+      get "/whitelists/1", params: {action: 'ops_not_here'}
+      assert_response :bad_request
     end
 
     it 'overrides :skip' do
       WhitelistsController.permitted_parameters :index, :skip
       WhitelistsController.permitted_parameters :index, bar: Parameters.boolean
-      get :index, params: {bar: true}
+      get "/whitelists", params: {bar: true}
       assert_response :success
       @controller.params.to_h["bar"].must_equal(true)
     end
 
     describe "when raising on invalid params" do
       def do_request
-        get :index, params: {user: {name: ["123".dup]}}
+        get "/whitelists", params: {user: {name: ["123".dup]}}
       end
 
       before { Parameters.action_on_invalid_parameters = :raise }
@@ -257,7 +252,7 @@ describe WhitelistsController do
       end
 
       it 'warns about nil values' do
-        @controller.params[:id] = nil
+        # @controller.params[:id] = nil
         do_request
         @controller.response.headers['X-StrongerParameters-API-Warn'].must_equal(
           "Removed restricted keys [\"id\"] from parameters according to permitted list"
